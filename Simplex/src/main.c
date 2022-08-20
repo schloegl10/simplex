@@ -1,18 +1,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <string.h>
 
-float aPadrao[3][4] = {
-{4.0,	1.0,	1.0,	0.0},
-{2.0,	3.0,	0.0,	-1.0},
-{-1.0,	3.0,	0.0,	0.0},
+float aPadrao[2][5] = {
+{8.0,	6.0,	1.0,	1.0, 0.0},
+{2.0,   1.5,	0.5,	0.0, 1.0}
 };
 
-float bPadrao[3][1] = {{21}, {13}, {1}};
+float bPadrao[2][1] = {{50}, {15}};
 
-float cPadrao[4][1] = {{-4}, {0}, {3}, {0}};
+float cPadrao[5][1] = {{47}, {32}, {20}, {0}, {0}};
 
-bool minimizar = true;
+bool minimizar = false;
 
 void printMatrix(int linhas, int colunas, float** matriz) {
 	int linha, coluna;
@@ -536,17 +536,81 @@ void fase2(int numeroVariaveis, int numeroRestricoes, float** a, float** b, floa
 
 float main()
 {
-	int linhasA = sizeof(aPadrao) / sizeof(aPadrao[0]);
-	int colunasA = sizeof(aPadrao[0])/sizeof(float);
-	float** aPointer = converteMatrizParaPointerMatriz(linhasA, colunasA, aPadrao);
-	float** bPointer = converteMatrizParaPointerMatriz(linhasA, 1, bPadrao);
-	float** cPointer = converteMatrizParaPointerMatriz(colunasA, 1, cPadrao);
+	//le arquivo
+    FILE *fp = fopen("problema.txt", "r");
+    char chunk[128];
+    size_t len = sizeof(chunk);
+    char *line = malloc(len);
+    if(line == NULL) {
+        exit(1);
+    }
+    line[0] = '\0';
+    int index = 0;
+    int altura = 0;
+    int largura = 0;
+	float** A;
+	float** b;
+	float** c;
+    while(fgets(chunk, sizeof(chunk), fp) != NULL) {
+        // Resize the line buffer if necessary
+        size_t len_used = strlen(line);
+        size_t chunk_used = strlen(chunk);
+        if(len - len_used < chunk_used) {
+            len *= 2;
+            if((line = realloc(line, len)) == NULL) {
+                perror("Unable to reallocate memory for the line buffer.");
+                free(line);
+                exit(1);
+            }
+        }
+        strncpy(line + len_used, chunk, len - len_used);
+        len_used += chunk_used;
+        if(line[len_used - 1] == '\n') {
+			printf(line);
+            char *ptr;
+            float d = (float) strtod(line, &ptr);
+			if(index == 0) {
+				if(line[0] == 't') {
+					minimizar = true;
+				} else {
+					minimizar = false;
+				}
+			} else if(index == 1) {
+                altura = (int)d;
+            } else if (index == 2) {
+                largura = (int)d;
+				A = criaMatriz(altura, largura);
+				b = criaMatriz(altura, 1);
+				c = criaMatriz(largura, 1);
+            } else if (index > 4 && index <= altura + 4) {
+				A[index-5][0] = (float) d;
+				for(int i = 1; i < largura; i++) {
+					A[index-5][i] = (float)strtod(ptr, &ptr);
+				}
+			} else if (index > altura + 6 && index <= (2 *altura) + 6) {
+				b[index - altura - 7][0] = (float)d;
+			} else if (index > (2 *altura) + 8 && index <= (2*altura) + largura + 8) {
+				c[index - ((2*altura) + 9)][0] = (float)d;
+			}
+			line[0] = '\0';
+		}
+        index++;
+    }
+    fclose(fp);
+    free(line);
+	printf("A matrix terá %d restricoes e %d variaveis\n", altura, largura);
+	printf("A:\n");
+	printMatrix(altura, largura, A);
+	printf("b:\n");
+	printMatrix(altura, 1, b);
+	printf("c:\n");
+	printMatrix(largura, 1, c);
 	printf("Iniciando a fase 1");
-	int** iB = fase1(colunasA, linhasA, aPointer, bPointer);
+	int** iB = fase1(largura, altura, A, b);
 	if(iB[0][0] != -1) {
 		printf("Sucesso fase 1 Ib igual a :\n");
-		printMatrixInt(1, linhasA, iB);
-		fase2(colunasA, linhasA, aPointer, bPointer, cPointer, iB);
+		printMatrixInt(1, altura, iB);
+		fase2(largura, altura, A, b, c, iB);
 	}
 	return (0);
 }
